@@ -34,11 +34,24 @@
 
 </body>
 
-<script src="/__/firebase/9.1.0/firebase-app-compat.js"></script>
-<script src="/__/firebase/9.1.0/firebase-auth-compat.js"></script>
-<script src="/__/firebase/init.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth-compat.js"></script>
 
 <script>
+    // 🔥 Firebase project configuration (Copied from your Firebase Console)
+    const firebaseConfig = {
+      apiKey: "AIzaSyACQiXRP26hS6NqbvtON-XPyYD2etnKZWE",
+      authDomain: "clinify-saas-prod.firebaseapp.com",
+      projectId: "clinify-saas-prod",
+      storageBucket: "clinify-saas-prod.firebasestorage.app",
+      messagingSenderId: "1026039308880",
+      appId: "1:1026039308880:web:eeae6c49862da2b526e755"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // START Login Logic
     const auth = firebase.auth();
     const googleSignInButton = document.getElementById('google-sign-in');
     const authStatus = document.getElementById('auth-status');
