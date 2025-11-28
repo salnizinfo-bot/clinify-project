@@ -1,0 +1,29 @@
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Patient Management</h2>
+    
+    <div class="mb-8">
+        <h3 class="text-xl font-semibold mb-4">Registered Patients</h3>
+        <p class="text-gray-500">Patient list will be displayed here using Supabase data.</p>
+        
+        <table class="min-w-full divide-y divide-gray-200 mt-4">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">John Doe</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">555-1234</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-teal-600 hover:text-teal-900 cursor-pointer">View Details</td>
+                </tr>
+                </tbody>
+        </table>
+    </div>
+
+    <button class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded transition duration-150">
+        + Add New Patient
+    </button>
+</div>

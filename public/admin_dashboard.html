@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Clinify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .sidebar { transition: width 0.3s; }
+        .main-content { transition: margin-left 0.3s; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex">
+
+    <aside id="sidebar" class="sidebar w-64 bg-white shadow-md flex-shrink-0">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold text-teal-600">Clinify</h1>
+        </div>
+        <nav class="mt-6">
+            <a href="dashboard_view.html" class="block py-2.5 px-6 text-gray-700 hover:bg-teal-500 hover:text-white transition duration-200">
+                Dashboard
+            </a>
+            <a href="patients.html" class="block py-2.5 px-6 text-gray-700 hover:bg-teal-500 hover:text-white transition duration-200">
+                Patients
+            </a>
+            <a href="admin_clinics.html" class="block py-2.5 px-6 text-gray-700 hover:bg-teal-500 hover:text-white transition duration-200">
+                Clinics (Admin)
+            </a>
+            <button id="signout-button" class="mt-10 w-full text-left block py-2.5 px-6 text-red-500 hover:bg-red-100 transition duration-200">
+                Sign Out
+            </button>
+        </nav>
+    </aside>
+
+    <main id="main-content" class="main-content flex-grow p-6">
+        <header class="bg-white p-4 shadow-md rounded-lg mb-6 flex justify-between items-center">
+            <button id="sidebar-toggle" class="text-gray-600 hover:text-teal-600 focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <h2 class="text-xl font-semibold text-gray-700">Welcome, Admin User!</h2>
+        </header>
+
+        <div id="content-area" class="bg-white p-6 shadow-md rounded-lg min-h-[70vh]">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">Loading Dashboard Data...</h3>
+            <div id="data-status" class="text-gray-500">Connecting to secure backend...</div>
+        </div>
+
+    </main>
+</body>
+
+<script src="/__/firebase/9.1.0/firebase-app-compat.js"></script>
+<script src="/__/firebase/9.1.0/firebase-auth-compat.js"></script>
+<script src="/__/firebase/init.js"></script>
+
+<script>
+    // --- GCF API CONFIGURATION ---
+    // This is the secure URL for your newly deployed Google Cloud Function
+    const GCF_API_URL = 'https://us-central1-clinify-saas-prod.cloudfunctions.net/getAdminData'; 
+    // -----------------------------
+
+    const auth = firebase.auth();
+    const contentArea = document.getElementById('content-area');
+    const dataStatus = document.getElementById('data-status');
+    const signoutButton = document.getElementById('signout-button');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+
+    // Authentication Check on Load
+    auth.onAuthStateChanged(user => {
+        if (!user) {
+            // If user is not logged in, redirect to the login page
+            window.location.href = '/index.html';
+        } else {
+            // User is logged in, attempt to fetch data
+            loadDashboard();
+        }
+    });
+
+    // Sign Out Handler
+    signoutButton.onclick = function() {
+        auth.signOut().then(() => {
+            // Sign out successful, redirect to login page
+            window.location.href = '/index.html';
+        }).catch((error) => {
+            console.error("Sign out error:", error);
+            alert("Error signing out. Please try again.");
+        });
+    };
+
+    // --- SECURE DATA FETCH FUNCTION (NEW) ---
+    // This function replaces all calls to the old Google Apps Script URL
+    async function fetchData(action, payload = {}) {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            dataStatus.textContent = "Session expired. Redirecting...";
+            window.location.href = '/index.html';
+            return;
+        }
+
+        try {
+            // 1. Get the secure token required by the GCF backend
+            const idToken = await user.getIdToken();
+            
+            const response = await fetch(GCF_API_URL, {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 2. Pass the secure token in the Authorization header
+                    'Authorization': `Bearer ${idToken}` 
+                },
+                body: JSON.stringify({ action: action, payload: payload })
+            });
+
+            if (response.status === 403) {
+                 // Handle Unauthorized error explicitly
+                throw new Error("Authorization failed. User may not be an Admin.");
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data;
+
+        } catch (error) {
+            console.error("Error fetching data from GCF:", error);
+            dataStatus.textContent = `Error: ${error.message}. Check browser console for details.`;
+            return { status: 'error', message: error.message };
+        }
+    }
+
+    // Example of how to call the new secure function
+    async function loadDashboard() {
+        dataStatus.textContent = "Fetching data securely...";
+        
+        // This simulates a call that used to go to Code.gs
+        const result = await fetchData("get_admin_data"); 
+        
+        if (result.status === 'success') {
+            dataStatus.textContent = "Data loaded successfully from GCF!";
+            console.log("GCF Test Response:", result);
+
+            // TODO: Here you will integrate the real data processing
+            contentArea.innerHTML = `
+                <h3 class="text-2xl font-bold text-green-600 mb-4">Backend Connection Test Success!</h3>
+                <p>GCF Endpoint Status: <span class="font-mono">${result.message}</span></p>
+                <p class="mt-4">Next step: Migrate your data fetching logic from the old Apps Script into the <code>getAdminData</code> function in <code>functions/index.js</code>.</p>
+            `;
+        } else {
+            dataStatus.textContent = `Failed to load data: ${result.message}`;
+        }
+    }
+    
+    // Sidebar Toggle Logic
+    sidebarToggle.onclick = function() {
+        sidebar.classList.toggle('w-64');
+        sidebar.classList.toggle('w-0');
+        sidebar.classList.toggle('hidden'); // Use hidden for mobile, but mostly rely on width
+        
+        // Adjust margin for main content
+        const newMargin = sidebar.classList.contains('w-64') ? 'ml-0' : 'ml-[-16rem]';
+        document.getElementById('main-content').style.marginLeft = newMargin;
+    };
+</script>

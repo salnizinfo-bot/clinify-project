@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Clinify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        
+        <div class="text-center mb-8">
+            <img src="LOGO_Clinify_01.png" alt="Clinify Logo" class="mx-auto h-16 w-auto mb-4">
+            <h1 class="text-3xl font-extrabold text-teal-600">Clinify</h1>
+            <p class="text-gray-500 mt-1">Admin Login</p>
+        </div>
+
+        <div class="space-y-4">
+            <button id="google-sign-in" 
+                    class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition duration-150 ease-in-out">
+                <svg class="w-5 h-5 mr-3" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C35.5 31.8 34.3 35 32 37.3l7.9 6.1C44.6 39 48 34 48 27.5c0-1.8-.3-3.6-.8-5.3z"/>
+                    <path fill="#34A853" d="M24 48c6.6 0 12.1-2.2 16.1-6.1l-7.9-6.1c-2.3 1.5-5.2 2.4-8.2 2.4-6.3 0-11.7-4.2-13.6-9.9l-8 6.2C7.8 44.5 15.4 48 24 48z"/>
+                    <path fill="#FBBC05" d="M10.4 28.5c-.5-1.5-.8-3-.8-4.5s.3-3 .8-4.5L2.4 13C.8 17.5 0 22.5 0 27.5s.8 10 2.4 14.5L10.4 28.5z"/>
+                    <path fill="#EA4335" d="M24 9.5c3.2 0 6.1 1.1 8.4 3.3l6.5-6.5C36.1 2.2 30.6 0 24 0 15.4 0 7.8 3.5 2.4 9.5l8 6.2C12.3 13.7 17.7 9.5 24 9.5z"/>
+                </svg>
+                Sign in with Google
+            </button>
+
+            <div id="auth-status" class="text-sm text-center text-red-500 min-h-[1.25rem]"></div>
+        </div>
+    </div>
+
+</body>
+
+<script src="/__/firebase/9.1.0/firebase-app-compat.js"></script>
+<script src="/__/firebase/9.1.0/firebase-auth-compat.js"></script>
+<script src="/__/firebase/init.js"></script>
+
+<script>
+    const auth = firebase.auth();
+    const googleSignInButton = document.getElementById('google-sign-in');
+    const authStatus = document.getElementById('auth-status');
+
+    // 1. Check Auth State on load
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            // User is signed in, redirect to the dashboard
+            window.location.href = '/admin_dashboard.html';
+        } 
+        // If not signed in, nothing happens, user remains on login page
+    });
+
+    // 2. Google Sign-In Handler
+    googleSignInButton.addEventListener('click', () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        authStatus.textContent = 'Signing in...';
+        
+        auth.signInWithPopup(provider)
+            .then((result) => {
+                // Sign-in successful, redirect happens via onAuthStateChanged listener
+                console.log("Signed in successfully:", result.user.email);
+            })
+            .catch((error) => {
+                // Handle Errors here.
+                console.error("Authentication Error:", error);
+                authStatus.textContent = `Login failed: ${error.message}`;
+            });
+    });
+</script>
+</html>
