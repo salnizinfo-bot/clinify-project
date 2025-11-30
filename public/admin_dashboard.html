@@ -11,7 +11,10 @@
     <nav class="bg-teal-600 p-4 shadow-md">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h2 class="text-xl font-bold text-white">Clinify Admin Console</h2>
-            <button id="signOutButton" class="bg-white text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-teal-50 transition duration-150">Sign Out</button>
+            <div class="flex items-center space-x-4">
+                <span id="userEmailDisplay" class="text-sm font-medium text-teal-100 italic"></span>
+                <button id="signOutButton" class="bg-white text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-teal-50 transition duration-150">Sign Out</button>
+            </div>
         </div>
     </nav>
 
@@ -47,41 +50,38 @@
         firebase.initializeApp(firebaseConfig);
         
         const auth = firebase.auth();
-        // Updated URLs for both Cloud Functions
         const GCF_ADMIN_DATA_URL = 'https://us-central1-clinify-saas-prod.cloudfunctions.net/getAdminData';
         const GCF_CONFIG_URL = 'https://us-central1-clinify-saas-prod.cloudfunctions.net/getClinicConfig';
         
         const contentArea = document.getElementById('contentArea');
         const dataStatus = document.getElementById('dataStatus');
         const specializedContent = document.getElementById('specializedContent');
+        const userEmailDisplay = document.getElementById('userEmailDisplay'); // Get the new element
 
         auth.onAuthStateChanged(user => {
             if (user) {
-                // User is signed in, proceed to fetch data
+                // Set the displayed email immediately upon finding a user
+                userEmailDisplay.textContent = `Logged in as: ${user.email}`;
                 loadDashboard(user); 
             } else {
-                // User is signed out, redirect to login
                 window.location.href = '/index.html';
             }
         });
 
         document.getElementById('signOutButton').addEventListener('click', () => {
             auth.signOut().then(() => {
-                // Redirect handled by onAuthStateChanged listener
+                // Clear the local Google session on sign out
+                window.location.href = 'https://accounts.google.com/logout';
             });
         });
 
-        // ========================================================
-        // loadDashboard function with RE-ENABLED config check
-        // AND robust data handling
-        // ========================================================
         async function loadDashboard(user) {
             try {
                 const idToken = await user.getIdToken();
-                let clinicType = 'unknown'; // Default safe state
+                let clinicType = 'unknown'; 
 
                 // ===============================================
-                // STEP 1: FETCH CLINIC CONFIG (RE-ENABLED)
+                // STEP 1: FETCH CLINIC CONFIG
                 // ===============================================
                 dataStatus.textContent = "Fetching clinic configuration...";
 
@@ -97,12 +97,10 @@
                         clinicType = configResult.clinicType;
                         dataStatus.textContent = `Configuration loaded: Clinic Type is ${clinicType.toUpperCase()}.`;
                     } else {
-                        // Backend failed to find config or returned an error, clinicType remains 'unknown'
                         dataStatus.textContent = `Warning: Could not determine clinic type. Defaulting to GENERAL.`;
                         clinicType = 'general';
                     }
                 } else {
-                    // Network error fetching config
                     throw new Error(`Failed to load config: ${configResponse.status} ${configResponse.statusText}`);
                 }
                 
@@ -114,7 +112,6 @@
                 const dataResponse = await fetch(GCF_ADMIN_DATA_URL, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
-                    // Send clinicType to backend
                     body: JSON.stringify({ action: 'get_dashboard_summary', clinicType: clinicType }) 
                 });
 
@@ -122,13 +119,11 @@
                     const dataResult = await dataResponse.json();
                     
                     if (dataResult.status === 'success') {
-                        // **PERMANENT FIX:** Use dataResult.data if nested, otherwise use the flat dataResult object itself.
+                        // FIX: Robust handling for flat or nested data structure
                         const dashboardData = dataResult.data || dataResult; 
                         
-                        // Check if the data is actually present now.
                         if (dashboardData.totalPatients !== undefined) {
                             
-                            // **SUCCESSFUL RENDERING LOGIC**
                             dataStatus.textContent = `Dashboard data loaded successfully for ${clinicType.toUpperCase()} clinic!`;
                             
                             // --- Conditional Rendering based on clinicType ---
@@ -140,7 +135,6 @@
                             } else if (clinicType === 'maternity') {
                                 renderMaternityDashboard(dashboardData); 
                             } else {
-                                // Fallback for unknown type
                                 renderGeneralDashboard(dashboardData);
                             }
                         } else {
@@ -165,7 +159,7 @@
         }
         
         // ===============================================
-        // RENDERING FUNCTIONS
+        // RENDERING FUNCTIONS (Unchanged)
         // ===============================================
 
         function renderGeneralDashboard(dashboardData) {
@@ -200,7 +194,6 @@
             `;
         }
         
-        // --- Placeholder Functions ---
         function renderDentalDashboard(dashboardData) {
              contentArea.innerHTML = '<p class="text-xl text-blue-500">DENTAL DASHBOARD - Coming Soon!</p>';
              specializedContent.innerHTML = '<p class="text-red-500">Showing specialized Dental metrics and charts.</p>';
