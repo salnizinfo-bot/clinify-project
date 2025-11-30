@@ -47,8 +47,9 @@
         firebase.initializeApp(firebaseConfig);
         
         const auth = firebase.auth();
+        // Updated URLs for both Cloud Functions
         const GCF_ADMIN_DATA_URL = 'https://us-central1-clinify-saas-prod.cloudfunctions.net/getAdminData';
-        // const GCF_CONFIG_URL = 'https://us-central1-clinify-saas-prod.cloudfunctions.net/getClinicConfig'; // REMOVED FOR TESTING
+        const GCF_CONFIG_URL = 'https://us-central1-clinify-saas-prod.cloudfunctions.net/getClinicConfig';
         
         const contentArea = document.getElementById('contentArea');
         const dataStatus = document.getElementById('dataStatus');
@@ -56,8 +57,10 @@
 
         auth.onAuthStateChanged(user => {
             if (user) {
+                // User is signed in, proceed to fetch data
                 loadDashboard(user); 
             } else {
+                // User is signed out, redirect to login
                 window.location.href = '/index.html';
             }
         });
@@ -68,47 +71,88 @@
             });
         });
 
-        // =========================================================
-        // TEMPORARY loadDashboard function: Bypassing Config Check
-        // =========================================================
+        // ========================================================
+        // loadDashboard function with RE-ENABLED config check
+        // AND robust data handling
+        // ========================================================
         async function loadDashboard(user) {
             try {
                 const idToken = await user.getIdToken();
-                // --- HARDCODE clinicType to test stability of getAdminData ---
-                let clinicType = 'general'; 
-
-                dataStatus.textContent = `Loading core data for ${clinicType.toUpperCase()} clinic (Bypassing config check)...`;
+                let clinicType = 'unknown'; // Default safe state
 
                 // ===============================================
-                // ONLY FETCH ADMIN DATA
+                // STEP 1: FETCH CLINIC CONFIG (RE-ENABLED)
                 // ===============================================
+                dataStatus.textContent = "Fetching clinic configuration...";
+
+                const configResponse = await fetch(GCF_CONFIG_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}) 
+                });
+
+                if (configResponse.ok) {
+                    const configResult = await configResponse.json();
+                    if (configResult.status === 'success' && configResult.clinicType) {
+                        clinicType = configResult.clinicType;
+                        dataStatus.textContent = `Configuration loaded: Clinic Type is ${clinicType.toUpperCase()}.`;
+                    } else {
+                        // Backend failed to find config or returned an error, clinicType remains 'unknown'
+                        dataStatus.textContent = `Warning: Could not determine clinic type. Defaulting to GENERAL.`;
+                        clinicType = 'general';
+                    }
+                } else {
+                    // Network error fetching config
+                    throw new Error(`Failed to load config: ${configResponse.status} ${configResponse.statusText}`);
+                }
+                
+                // ===============================================
+                // STEP 2: FETCH ADMIN DATA
+                // ===============================================
+                dataStatus.textContent = `Loading core data for ${clinicType.toUpperCase()} clinic...`;
+
                 const dataResponse = await fetch(GCF_ADMIN_DATA_URL, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+                    // Send clinicType to backend
                     body: JSON.stringify({ action: 'get_dashboard_summary', clinicType: clinicType }) 
                 });
 
                 if (dataResponse.ok) {
                     const dataResult = await dataResponse.json();
                     
-                    // --- Check for nested data object ---
-                    if (dataResult.status === 'success' && dataResult.data) { 
+                    if (dataResult.status === 'success') {
+                        // **PERMANENT FIX:** Use dataResult.data if nested, otherwise use the flat dataResult object itself.
+                        const dashboardData = dataResult.data || dataResult; 
                         
-                        const dashboardData = dataResult.data; 
-                        
-                        dataStatus.textContent = `Dashboard data loaded successfully for ${clinicType.toUpperCase()} clinic!`;
-                        
-                        // --- Conditional Rendering based on clinicType ---
-                        renderGeneralDashboard(dashboardData); 
+                        // Check if the data is actually present now.
+                        if (dashboardData.totalPatients !== undefined) {
+                            
+                            // **SUCCESSFUL RENDERING LOGIC**
+                            dataStatus.textContent = `Dashboard data loaded successfully for ${clinicType.toUpperCase()} clinic!`;
+                            
+                            // --- Conditional Rendering based on clinicType ---
+                            
+                            if (clinicType === 'general') {
+                                renderGeneralDashboard(dashboardData); 
+                            } else if (clinicType === 'dental') {
+                                renderDentalDashboard(dashboardData); 
+                            } else if (clinicType === 'maternity') {
+                                renderMaternityDashboard(dashboardData); 
+                            } else {
+                                // Fallback for unknown type
+                                renderGeneralDashboard(dashboardData);
+                            }
+                        } else {
+                             dataStatus.textContent = `Error from Backend Logic: Data was successfully retrieved but is empty.`;
+                             contentArea.innerHTML = `<p class="text-red-500">Backend data is empty or corrupted. Please check GCF logs.</p>`;
+                        }
                         
                     } else {
-                        // Log the unexpected response for debugging
-                        console.error("Backend response error (Missing 'data' or status is not 'success'):", dataResult);
-                        dataStatus.textContent = `Error from Backend Logic: ${dataResult.message || 'Response received but data structure is invalid.'}`;
-                        contentArea.innerHTML = `<p class="text-red-500">Backend Logic Failed. Please check the browser console for the exact response object.</p>`;
+                        dataStatus.textContent = `Error from Backend: ${dataResult.message || 'Unknown error'}`;
+                        contentArea.innerHTML = `<p class="text-red-500">Backend Logic Failed: ${dataResult.message || 'See console for details.'}</p>`;
                     }
                 } else {
-                    // Handle HTTP error
                     dataStatus.textContent = `Network Error: ${dataResponse.statusText}`;
                     contentArea.innerHTML = `<p class="text-red-500">Failed to connect to backend: ${dataResponse.status} ${dataResponse.statusText}</p>`;
                 }
@@ -121,7 +165,7 @@
         }
         
         // ===============================================
-        // RENDERING FUNCTIONS (Unchanged)
+        // RENDERING FUNCTIONS
         // ===============================================
 
         function renderGeneralDashboard(dashboardData) {
@@ -156,6 +200,7 @@
             `;
         }
         
+        // --- Placeholder Functions ---
         function renderDentalDashboard(dashboardData) {
              contentArea.innerHTML = '<p class="text-xl text-blue-500">DENTAL DASHBOARD - Coming Soon!</p>';
              specializedContent.innerHTML = '<p class="text-red-500">Showing specialized Dental metrics and charts.</p>';
