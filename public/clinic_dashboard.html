@@ -84,11 +84,20 @@
 
         // 1. Authentication Check
         auth.onAuthStateChanged(user => {
+            // WE MUST COMMENT OUT THE REDIRECT TO STOP THE INFINITE LOOP.
+            // Since we are logged in, the page will now stabilize and load.
+            // if (!user) {
+            //     // Not logged in or logged out, redirect to login
+            //     window.location.href = '/index.html';
+            //     return;
+            // }
+
             if (!user) {
-                // Not logged in or logged out, redirect to login
-                window.location.href = '/index.html';
-                return;
+                 // If the session is truly gone, display a warning instead of redirecting
+                 document.getElementById('user-info').textContent = 'Session lost. Please sign in again.';
+                 return;
             }
+            
             // Display user email
             document.getElementById('user-info').textContent = `Logged in as: ${user.email}`;
 
