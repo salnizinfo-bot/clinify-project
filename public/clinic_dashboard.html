@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic Dashboard | Clinify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Basic styles for the dashboard layout */
+        body { margin: 0; font-family: sans-serif; display: flex; }
+        #sidebar { width: 200px; background-color: #0d9488; color: white; padding: 20px; height: 100vh; }
+        #main-content { flex-grow: 1; padding: 30px; }
+        .sidebar-link { display: block; padding: 10px; margin-bottom: 10px; border-radius: 5px; text-decoration: none; color: white; transition: background-color 0.2s; }
+        .sidebar-link:hover { background-color: #0f766e; }
+        
+        /* Styles for the NewPatientForm (from the JS component) */
+        .patient-form label { display: block; margin-top: 10px; font-weight: bold; }
+        .patient-form input, .patient-form select, .patient-form textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .patient-form button[type="submit"] { background-color: #059669; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; }
+        .error-message { color: red; border: 1px solid red; padding: 10px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2 class="text-xl font-bold mb-8">Clinify Clinic</h2>
+        <nav>
+            <a href="/clinic_dashboard.html" class="sidebar-link">Dashboard</a>
+            
+            <a href="/clinic_dashboard.html?page=patients" id="patients-link" class="sidebar-link">Patients</a>
+            
+            <a href="#" id="sign-out-link" class="sidebar-link" style="margin-top: 30px; background-color: #dc2626;">Sign Out</a>
+        </nav>
+        <div id="user-info" class="mt-auto text-sm"></div>
+    </div>
+
+    <div id="main-content">
+        <header class="mb-6">
+            <h1 id="page-title" class="text-2xl font-bold text-gray-800">Clinic Dashboard</h1>
+        </header>
+        <div id="root">
+            Loading Application...
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // 🔥 Firebase project configuration (Same as index.html)
+        const firebaseConfig = {
+          apiKey: "AIzaSyACQiXRP26hS6NqbvtON-XPyYD2etnKZWE",
+          authDomain: "clinify-saas-prod.firebaseapp.com",
+          projectId: "clinify-saas-prod",
+          storageBucket: "clinify-saas-prod.firebasestorage.app",
+          messagingSenderId: "1026039308880",
+          appId: "1:1026039308880:web:eeae6c49862da2b526e755"
+        };
+        firebase.initializeApp(firebaseConfig);
+    </script>
+
+    <script type="text/babel" src="../src/services/firebaseService.js"></script>
+    <script type="text/babel" src="../src/components/patient/NewPatientForm.js"></script>
+    <script type="text/babel" src="../src/pages/PatientsPage.js"></script>
+
+    <script type="text/babel">
+        // MAIN APPLICATION ROUTER AND RENDERER
+        
+        const auth = firebase.auth();
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+
+        // Sign Out Logic
+        document.getElementById('sign-out-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            auth.signOut().then(() => {
+                window.location.href = '/index.html';
+            });
+        });
+
+        // 1. Authentication Check
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                // Not logged in or logged out, redirect to login
+                window.location.href = '/index.html';
+                return;
+            }
+            // Display user email
+            document.getElementById('user-info').textContent = `Logged in as: ${user.email}`;
+
+            // 2. Simple Client-Side Router
+            const renderPage = () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const page = urlParams.get('page');
+                const pageTitle = document.getElementById('page-title');
+
+                if (page === 'patients') {
+                    // Render the Patients Page
+                    pageTitle.textContent = "Patient Management";
+                    root.render(<PatientsPage />);
+                } else {
+                    // Default Dashboard View
+                    pageTitle.textContent = "Clinic Overview";
+                    root.render(
+                        <div>
+                            <p>Welcome to your Clinify Dashboard.</p>
+                            <p>Use the **Patients** link on the left to start adding records.</p>
+                            <p>Clinic ID: {user.uid}</p>
+                        </div>
+                    );
+                }
+            };
+            
+            // Listen for changes in the URL hash (if we were using a router library)
+            window.addEventListener('popstate', renderPage);
+            
+            // Initial render based on URL
+            renderPage();
+        });
+
+    </script>
+</body>
+</html>

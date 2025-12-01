@@ -36,9 +36,10 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore-compat.js"></script>
 
 <script>
-    // 🔥 Firebase project configuration (Copied from your Firebase Console)
+    // 🔥 Firebase project configuration (Same as index.html)
     const firebaseConfig = {
       apiKey: "AIzaSyACQiXRP26hS6NqbvtON-XPyYD2etnKZWE",
       authDomain: "clinify-saas-prod.firebaseapp.com",
@@ -53,14 +54,46 @@
     
     // START Login Logic
     const auth = firebase.auth();
+    const db = firebase.firestore(); // Initialize Firestore for checking user type
     const googleSignInButton = document.getElementById('google-sign-in');
     const authStatus = document.getElementById('auth-status');
 
-    // 1. Check Auth State on load
-    auth.onAuthStateChanged(user => {
+    // --- NEW AUTH CHECK LOGIC: Checks user type and redirects accordingly ---
+    auth.onAuthStateChanged(async (user) => {
         if (user) {
-            // User is signed in, redirect to the dashboard
-            window.location.href = '/admin_dashboard.html';
+            authStatus.textContent = `Fetching user data for: ${user.email}...`;
+            
+            try {
+                // Fetch the user's custom data (account type) from Firestore
+                const userDoc = await db.collection("users").doc(user.uid).get();
+
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    const accountType = userData.accountType;
+                    
+                    authStatus.textContent = `Logged in as: ${accountType}`;
+
+                    if (accountType === 'Admin App builder/Developer') {
+                        // Redirect Admin (salniz.info) to the Admin dashboard
+                        window.location.href = '/admin_dashboard.html';
+                    } else if (accountType === 'GENERAL' || accountType === 'DENTAL') {
+                        // Redirect Clinics (store.samdhu, behappy216) to the NEW Clinic dashboard
+                        window.location.href = '/clinic_dashboard.html'; 
+                    } else {
+                        // Unknown or unhandled user type
+                        authStatus.textContent = "Error: Unknown account type. Please contact support.";
+                        auth.signOut();
+                    }
+                } else {
+                    authStatus.textContent = "Error: User data not found in Firestore. Please sign up first.";
+                    auth.signOut();
+                }
+            } catch (error) {
+                console.error("Error fetching user type:", error);
+                authStatus.textContent = `Error fetching data: ${error.message}`;
+                auth.signOut();
+            }
+
         } 
         // If not signed in, nothing happens, user remains on login page
     });
@@ -71,12 +104,10 @@
         authStatus.textContent = 'Signing in...';
         
         auth.signInWithPopup(provider)
-            .then((result) => {
-                // Sign-in successful, redirect happens via onAuthStateChanged listener
-                console.log("Signed in successfully:", result.user.email);
+            .then(() => {
+                // Sign-in successful, redirection handled by onAuthStateChanged listener
             })
             .catch((error) => {
-                // Handle Errors here.
                 console.error("Authentication Error:", error);
                 authStatus.textContent = `Login failed: ${error.message}`;
             });

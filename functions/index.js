@@ -1,81 +1,179 @@
-// 1. Core Imports
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+// Import GCF Gen 2 modules
+const { onRequest } = require('firebase-functions/v2/https');
+const admin = require('firebase-admin');
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Firebase Admin SDK for user authentication checks
+// Initialize Firebase Admin SDK to verify ID tokens
 admin.initializeApp();
 
-// 2. Supabase Initialization (Keys inserted below)
-// The Public Anon Key is safe to include here.
-const SUPABASE_URL = 'https://lycsemjvxjovqdgwzpnx.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5Y3NlbWp2eGpvdnFkZ3d6cG54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNzg4ODIsImV4cCI6MjA3ODk1NDg4Mn0.VLkfH9W68mcoQFVSG7HbinzVv-jeH1zcKw3l0vsaCQs'; 
+// --- Supabase Configuration ---
+// !! CRITICAL ACTION: Replace the placeholders below with your actual Supabase details !!
+const SUPABASE_URL = 'https://lycsemjvxjovqdgwzpnx.supabase.co'; // <--- REPLACE THIS
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5Y3NlbWp2eGpvdnFkZ3d6cG54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzM3ODg4MiwiZXhwIjoyMDc4OTU0ODgyfQ.vVoEP99TcVzyWEeFzpxGbrE0ldr1VmM7xtNKe8TiPRA'; // <--- REPLACE THIS (Service Role Key)
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// 3. Authentication Middleware (to verify Firebase Token from the client)
-const authenticate = async (request, response, next) => {
-    // Get the ID token from the request headers
-    if (!request.headers.authorization || !request.headers.authorization.startsWith('Bearer ')) {
-        console.error('No Firebase ID token was passed.');
-        response.status(403).send('Unauthorized');
-        return;
+// Helper function to extract and verify the user's email from the Firebase ID Token
+async function getAuthenticatedUser(req) {
+    if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        throw new Error('No token provided.');
     }
 
-    const idToken = request.headers.authorization.split('Bearer ')[1];
-
+    const idToken = req.headers.authorization.split('Bearer ')[1];
+    
     try {
-        // Verify the token using Firebase Admin SDK
         const decodedToken = await admin.auth().verifyIdToken(idToken);
-        request.user = decodedToken; // Attach user info to the request
-        next(); // Proceed to the function logic
+        return decodedToken.email;
     } catch (error) {
-        console.error('Error while verifying Firebase ID token:', error);
-        response.status(403).send('Unauthorized');
+        console.error("Token verification failed:", error);
+        throw new Error('Token invalid.');
     }
-};
+}
 
-
-// 4. Migrate the Code.gs logic into GCF functions (Example: get_admin_data)
-// This is the first API endpoint, mirroring the old Apps Script function.
-exports.getAdminData = functions.https.onRequest(async (request, response) => {
-    // Set CORS headers for all requests (CRITICAL for client/server communication)
-    response.set('Access-Control-Allow-Origin', 'https://clinify-saas-prod.web.app'); // Replace with your actual hosting URL
-    response.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-
-    if (request.method === 'OPTIONS') {
-        // Handle preflight request for CORS
-        response.status(204).send('');
-        return;
+// Helper to handle CORS response
+function handleCors(req, res) {
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+        res.status(204).send('');
+        return true;
     }
+    return false;
+}
 
-    // Apply authentication middleware
-    await new Promise((resolve, reject) => {
-        // Resolve is called when middleware is complete (success or failure)
-        authenticate(request, response, resolve); 
-    });
+// ==========================================================
+// 1. getClinicConfig Cloud Function (GCF GEN 2 SYNTAX & FIXED LOGIC)
+// ==========================================================
+exports.getClinicConfig = onRequest({ 
+    region: 'us-central1', 
+    runtime: 'nodejs20'
+}, async (req, res) => {
+    
+    if (handleCors(req, res)) return;
 
-    // Check if authentication failed inside the middleware
-    if (response.statusCode === 403) return; 
+    let userEmail;
+    try {
+        userEmail = await getAuthenticatedUser(req);
+    } catch (error) {
+        return res.status(401).send({ status: 'error', message: `Auth Failed: ${error.message}` });
+    }
 
     try {
-        // The request is now authenticated (request.user contains user info)
-        const userEmail = request.user.email; 
-        console.log(`Authenticated request from: ${userEmail}`);
+        // Look up the user's clinic using the verified email
+        const { data, error } = await supabase
+            .from('clinics')
+            .select('clinic_type')
+            .eq('owner_email', userEmail) 
+            .single();
+
+        if (error && error.code !== 'PGRST116') { 
+            console.error("Supabase config query error:", error);
+            return res.status(500).send({ status: 'error', message: 'Database query failed.' });
+        }
+
+        if (data) {
+            // Success: Return the found clinic type
+            return res.status(200).send({ status: 'success', clinicType: data.clinic_type });
+        } else {
+            // No clinic found for this email, default to general
+            return res.status(200).send({ status: 'success', clinicType: 'general', message: 'Clinic config not found, defaulting.' });
+        }
+
+    } catch (e) {
+        console.error("getClinicConfig fatal error:", e);
+        return res.status(500).send({ status: 'error', message: 'Internal server error.' });
+    }
+});
+
+
+// ==========================================================
+// 2. getAdminData Cloud Function (GCF GEN 2 SYNTAX & UPDATED LOGIC)
+// ==========================================================
+exports.getAdminData = onRequest({ 
+    region: 'us-central1', 
+    runtime: 'nodejs20'
+}, async (req, res) => {
+    
+    if (handleCors(req, res)) return;
+
+    let userEmail;
+    try {
+        userEmail = await getAuthenticatedUser(req);
+    } catch (error) {
+        return res.status(401).send({ status: 'error', message: `Auth Failed: ${error.message}` });
+    }
+
+    // Determine the clinic ID based on the authenticated email
+    let clinicId;
+    try {
+        const { data: clinicData, error: clinicError } = await supabase
+            .from('clinics')
+            .select('reg_no')
+            .eq('owner_email', userEmail)
+            .single();
+
+        if (clinicError && clinicError.code !== 'PGRST116') {
+            console.error('Failed to find clinic ID for user:', userEmail, clinicError);
+            return res.status(500).send({ status: 'error', message: 'Internal server error during clinic lookup.' });
+        }
+
+        if (!clinicData) {
+             return res.status(200).send({ status: 'success', data: { totalPatients: 0, appointmentsToday: 0 } });
+        }
         
-        // --- YOUR MIGRATED APPS SCRIPT LOGIC WILL GO HERE ---
+        clinicId = clinicData.reg_no;
+
+    } catch (e) {
+        console.error("Clinic ID lookup fatal error:", e);
+        return res.status(500).send({ status: 'error', message: 'Internal server error during clinic lookup.' });
+    }
+
+    // --- NEW LOGIC: Conditional action handling ---
+    const action = req.body.action;
+
+    if (action === 'get_dashboard_summary') {
+        // Fetch patient count for the specific clinic ID
+        const { count: totalPatients, error: countError } = await supabase
+            .from('patients')
+            .select('*', { count: 'exact', head: true })
+            .eq('clinic_id', clinicId); 
+
+        if (countError) {
+            console.error("Supabase patient count query error:", countError);
+            return res.status(500).send({ status: 'error', message: 'Database query failed for metrics.' });
+        }
         
-        // We deploy this empty function first to verify the GCF/Auth connection
-        // The logic here proves the user logged in via Firebase Auth can call the GCF function.
-        response.status(200).json({ 
-            status: 'success', 
-            message: 'GCF is live and authenticated. Supabase connection ready. Next step: Migrate data logic.' 
+        return res.status(200).send({
+            status: 'success',
+            data: {
+                totalPatients: totalPatients || 0,
+                appointmentsToday: 0
+            }
         });
 
+    } else if (action === 'get_patient_list') {
+        // Fetch the entire patient list for the clinic
+        const { data: patients, error: patientListError } = await supabase
+            .from('patients')
+            // Only select necessary columns for the table view
+            .select('patient_id, full_name, dob, phone_number, last_visit') 
+            .eq('clinic_id', clinicId)
+            .order('last_visit', { ascending: false });
 
-    } catch (error) {
-        console.error("Function execution error:", error);
-        response.status(500).json({ status: 'error', message: error.message });
+        if (patientListError) {
+            console.error("Supabase patient list query error:", patientListError);
+            return res.status(500).send({ status: 'error', message: 'Database query failed for patient list.' });
+        }
+
+        return res.status(200).send({
+            status: 'success',
+            // Return the list of patients under the 'patients' key
+            data: {
+                patients: patients
+            }
+        });
     }
+
+    // Default response if no action is specified
+    return res.status(400).send({ status: 'error', message: 'Invalid or missing action parameter.' });
 });
