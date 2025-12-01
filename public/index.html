@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Clinify</title>
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // 🔥 Firebase project configuration (THIS MUST BE FIRST)
+        const firebaseConfig = {
+          apiKey: "AIzaSyACQiXRP26hS6NqbvtON-XPyYD2etnKZWE",
+          authDomain: "clinify-saas-prod.firebaseapp.com",
+          projectId: "clinify-saas-prod",
+          storageBucket: "clinify-saas-prod.firebasestorage.app",
+          messagingSenderId: "1026039308880",
+          appId: "1:1026039308880:web:eeae6c49862da2b526e755"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig); 
+    </script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
 
@@ -34,27 +53,10 @@
 
 </body>
 
-<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore-compat.js"></script>
-
 <script>
-    // 🔥 Firebase project configuration (Copied from your Firebase Console)
-    const firebaseConfig = {
-      apiKey: "AIzaSyACQiXRP26hS6NqbvtON-XPyYD2etnKZWE",
-      authDomain: "clinify-saas-prod.firebaseapp.com",
-      projectId: "clinify-saas-prod",
-      storageBucket: "clinify-saas-prod.firebasestorage.app",
-      messagingSenderId: "1026039308880",
-      appId: "1:1026039308880:web:eeae6c49862da2b526e755"
-    };
-
-    // Initialize Firebase (THIS IS CRITICAL FOR THE CONNECTION)
-    firebase.initializeApp(firebaseConfig); 
-    
     // START Login Logic
     const auth = firebase.auth();
-    const db = firebase.firestore(); // Initialize Firestore for checking user type
+    const db = firebase.firestore(); 
     const googleSignInButton = document.getElementById('google-sign-in');
     const authStatus = document.getElementById('auth-status');
 
@@ -74,13 +76,12 @@
                     authStatus.textContent = `Logged in as: ${accountType}`;
 
                     if (accountType === 'Admin App builder/Developer') {
-                        // Redirect Admin (salniz.info) to the Admin dashboard
+                        // Redirect Admin (salniz.info)
                         window.location.href = '/admin_dashboard.html';
                     } else if (accountType === 'GENERAL' || accountType === 'DENTAL') {
-                        // Redirect Clinics (store.samdhu, behappy216) to the NEW Clinic dashboard
+                        // Redirect Clinics 
                         window.location.href = '/clinic_dashboard.html'; 
                     } else {
-                        // Unknown or unhandled user type
                         authStatus.textContent = "Error: Unknown account type. Please contact support.";
                         auth.signOut();
                     }
@@ -89,14 +90,11 @@
                     auth.signOut();
                 }
             } catch (error) {
-                // THIS CATCHES THE "OFFLINE" ERROR IF INITIALIZATION FAILED ELSEWHERE
                 console.error("Error fetching user type:", error);
                 authStatus.textContent = `Error fetching data: ${error.message}`;
                 auth.signOut();
             }
-
         } 
-        // If not signed in, nothing happens, user remains on login page
     });
 
     // 2. Google Sign-In Handler
