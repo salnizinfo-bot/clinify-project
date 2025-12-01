@@ -10,14 +10,12 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
-        /* Basic styles for the dashboard layout */
+        /* Styles omitted for brevity */
         body { margin: 0; font-family: sans-serif; display: flex; }
         #sidebar { width: 200px; background-color: #0d9488; color: white; padding: 20px; height: 100vh; }
         #main-content { flex-grow: 1; padding: 30px; }
         .sidebar-link { display: block; padding: 10px; margin-bottom: 10px; border-radius: 5px; text-decoration: none; color: white; transition: background-color 0.2s; }
         .sidebar-link:hover { background-color: #0f766e; }
-        
-        /* Styles for the NewPatientForm (from the JS component) */
         .patient-form label { display: block; margin-top: 10px; font-weight: bold; }
         .patient-form input, .patient-form select, .patient-form textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .patient-form button[type="submit"] { background-color: #059669; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; }
@@ -84,17 +82,11 @@
 
         // 1. Authentication Check
         auth.onAuthStateChanged(user => {
-            // WE MUST COMMENT OUT THE REDIRECT TO STOP THE INFINITE LOOP.
-            // Since we are logged in, the page will now stabilize and load.
-            // if (!user) {
-            //     // Not logged in or logged out, redirect to login
-            //     window.location.href = '/index.html';
-            //     return;
-            // }
-
+            // Check for user explicitly and update the UI message
             if (!user) {
-                 // If the session is truly gone, display a warning instead of redirecting
                  document.getElementById('user-info').textContent = 'Session lost. Please sign in again.';
+                 // CRITICAL FIX: Prevent React from trying to render if user is null
+                 root.render(<div>Please log in to view the dashboard.</div>);
                  return;
             }
             
