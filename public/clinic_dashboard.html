@@ -76,7 +76,6 @@
         document.getElementById('sign-out-link').addEventListener('click', (e) => {
             e.preventDefault();
             auth.signOut().then(() => {
-                // Redirecting to index.html will still show the error, but the session is cleared
                 window.location.href = '/index.html'; 
             });
         });
@@ -88,8 +87,7 @@
              
              auth.signInWithPopup(provider)
                 .then(() => {
-                    // Sign-in successful, the onAuthStateChanged listener will fire and re-render the page
-                    // We stay on this page, stabilizing the session.
+                    // Session is stable on this page, the onAuthStateChanged listener will re-render
                 })
                 .catch((error) => {
                     console.error("Authentication Error:", error);
@@ -100,7 +98,7 @@
         // 1. Authentication Check
         auth.onAuthStateChanged(user => {
             if (!user) {
-                 // 💥 NEW LOGIC: Render a login screen on the dashboard page 💥
+                 // 💥 FIX: Render a login screen on the dashboard page instead of redirecting 💥
                  document.getElementById('user-info').textContent = 'Session lost.';
                  document.getElementById('sidebar').style.display = 'none'; // Hide sidebar links
                  document.getElementById('page-title').textContent = 'Login Required';
@@ -140,7 +138,9 @@
                 if (page === 'patients') {
                     // Render the Patients Page
                     pageTitle.textContent = "Patient Management";
-                    root.render(<PatientsPage />);
+                    // IMPORTANT: The key to stability is that PatientsPage must run without errors
+                    // if it errors out (e.g., in firebaseService.js), it might drop the session.
+                    root.render(<PatientsPage />); 
                 } else {
                     // Default Dashboard View
                     pageTitle.textContent = "Clinic Overview";
