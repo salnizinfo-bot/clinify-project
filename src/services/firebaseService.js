@@ -1,21 +1,24 @@
 // Function to add a new patient record
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // To get the current user ID
+// CRITICAL FIX: We move initialization (getFirestore, getAuth) inside the function 
+// to prevent "client is offline" errors from trying to access Firebase too early.
 
-const db = getFirestore();
-const auth = getAuth();
+import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth'; 
 
 /**
  * Saves a new patient record to the Firestore 'patients' collection.
- * CRITICAL: The patient is linked to the currently logged-in clinic user.
- * * @param {Object} patientData - The data collected from the form (Name, DOB, Phone, etc.)
+ * @param {Object} patientData - The data collected from the form (Name, DOB, Phone, etc.)
  * @returns {Promise<string>} The ID of the newly created patient document
  */
 export async function addNewPatient(patientData) {
+    
+    // Initialize services ONLY when the function is called, ensuring Firebase is ready.
+    const db = getFirestore();
+    const auth = getAuth();
+    
     // 1. Get the ID of the currently logged-in Clinic user (store.samdhu or behappy216)
     const currentUser = auth.currentUser;
     if (!currentUser) {
-        // This is a safety check: a clinic must be logged in to add a patient.
         throw new Error("Authentication Error: No clinic user is currently logged in.");
     }
 
@@ -23,7 +26,7 @@ export async function addNewPatient(patientData) {
 
     // 2. Structure the data to be saved in the 'patients' collection
     const newPatientRecord = {
-        ...patientData, // Takes all fields from the form (fullName, dateOfBirth, etc.)
+        ...patientData, 
         clinicId: clinicId, // REQUIRED LINK: Ties the patient record to the clinic
         createdAt: new Date(),
     };
