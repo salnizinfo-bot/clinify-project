@@ -39,7 +39,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore-compat.js"></script>
 
 <script>
-    // 🔥 Firebase project configuration (Same as index.html)
+    // 🔥 Firebase project configuration (Copied from your Firebase Console)
     const firebaseConfig = {
       apiKey: "AIzaSyACQiXRP26hS6NqbvtON-XPyYD2etnKZWE",
       authDomain: "clinify-saas-prod.firebaseapp.com",
@@ -49,8 +49,8 @@
       appId: "1:1026039308880:web:eeae6c49862da2b526e755"
     };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
+    // Initialize Firebase (THIS IS CRITICAL FOR THE CONNECTION)
+    firebase.initializeApp(firebaseConfig); 
     
     // START Login Logic
     const auth = firebase.auth();
@@ -58,7 +58,7 @@
     const googleSignInButton = document.getElementById('google-sign-in');
     const authStatus = document.getElementById('auth-status');
 
-    // --- NEW AUTH CHECK LOGIC: Checks user type and redirects accordingly ---
+    // --- AUTH CHECK LOGIC: Checks user type and redirects accordingly ---
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             authStatus.textContent = `Fetching user data for: ${user.email}...`;
@@ -89,6 +89,7 @@
                     auth.signOut();
                 }
             } catch (error) {
+                // THIS CATCHES THE "OFFLINE" ERROR IF INITIALIZATION FAILED ELSEWHERE
                 console.error("Error fetching user type:", error);
                 authStatus.textContent = `Error fetching data: ${error.message}`;
                 auth.signOut();
